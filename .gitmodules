@@ -1,0 +1,9 @@
+[submodule "UVM 1800.2-2020-3.1"]
+	path = unit_test/deps/uvm/1800.2-2020-3.1
+	url = https://github.com/accellera-official/uvm-core.git
+[submodule "Cluelib"]
+	path = unit_test/deps/cluelib
+	url = https://github.com/cluelogic/cluelib
+[submodule "Verilator"]
+	path = unit_test/deps/verilator
+	url = https://github.com/verilator/verilator

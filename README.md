@@ -2,26 +2,28 @@
 The EVM utils package contains enhancements for UVM.
 
 ## Dependancies
-This package requires the following 
-- UVM 
+The evm_utils_pkg depends on the following 3rd party packages:
+- UVM ()
 - [CLuelib](https://github.com/cluelogic/cluelib)
 
 ## Usage
-Include `src` in your `incdir` list and `evm_utils_pkg.sv` in your manifest.  Optionally, import the package
-contents.
+Include `src` in your `incdir` list and `evm_utils_pkg.sv` in your manifest.  Importing the package contents 
+into the using scope is recommended and facilitated with the use of the "evm_" prefix.
 
-## Reporting
+## Description
+
+### Reporting
 Useful UVM messaging utilities to delegate non-component messages to a UVM component, single line printing, typename 
 macros, and report server.  
 
-## RAL Utilities
+### RAL Utilities
 RAL field modeling edge triggered events, field coverage, memory mirroring and register access logging utilities.  
 
-### Field Edge Modeling
+#### Field Edge Modeling
 This package provides a utility for detecting and reporting (thru a SV event) an edge on a RAL field.  This is 
 useful for modeling design features that occur on a RAL field value change.
 
-### Field Coverage
+#### Field Coverage
 RAL fields will require different types of coverage to be collected at different times.  One example is a 
 configuration field with a small set of legal values that controls the operation of a state-machine.  Covering 
 *all the legal values* when the *state machine is started* is the appropriate coverage.  Another example is a
@@ -38,22 +40,22 @@ any field.
 
 The header comments in ral_field_coverage_policies.sv is the recommended starting place.
 
-### Memory Mirror
+#### Memory Mirror
 This package provides a memory backdoor wrapper that wraps a generated backdoor to optionally call callbacks on 
 all backdoor accesses.  It also provides a predictive model of the memory contents, similiar to the RAL mirror 
 model for register fields.
 
-### Register Access Logging
+#### Register Access Logging
 This component logs all register accesses to a single, dedicated log file.  This includes read(), write(), mirror(), 
 update(), (thru any path or map), peek(), and poke().  It logs the returned read value and the provided write value.  
 Both access types log the final *mirror* value for all fields; this is verification's expected value for the design 
 after the access completes.
 
-## RAL Virtual Environment
+### RAL Virtual Environment
 An environment that provides RAL register read and write access with only the RAL model.  This environment can be 
 used to develop and test RAL environment components, such as RAL sequences, before the design is available.
 
-## Comparer 
+### Comparer 
 When two uvm_sequence_item objects are compare()'d, the uvm_comparer policy class is used to implement how fields 
 are compared and the side effects.  
 
@@ -64,11 +66,11 @@ or violate the specific policy when possible, and discarded when they are no lon
 The evm_series_comparer class is the base for all policies and does not implement a specific series comparer policy.  Its
 class description is the recommended starting place.
 
-## Contents
+## Content List
 
 ### Reporting
 | File | Purpose |
-|------|---------|
+|---|---|
 | evm_report_delegation.sv | Delegate messages from an object to a component like UVM sequences |
 | evm_type_name.sv | typename() and get_type_name() implementations for parameterized classes |
 | evm_single_line_printer.sv | uvm_line_printer without its trailing newline |
@@ -106,9 +108,38 @@ class description is the recommended starting place.
     - Log field accesses
     - Table format 
     - Only log unique subset of full register name 
-- Add memory mirroring to unit test
+- Unit Test
+    - Add memory mirroring 
+    - Support additional simulators
 
-## Unit Tests
-The unit_test subdirectory contains a full UVM testcase for testing basic functionality of 
-most of the EVM Utilities.  The tests can be run using the Makefile in the run dir and were 
-tested under `verilator 5.049`.
+## Unit Test
+The unit_test subdirectory contains a basic test suite of the evm_utils and tested against:
+- [verilator v5.048](https://verilator.org) 
+- UVM [1800.2-2017-1.0](https://www.accellera.org/images/downloads/standards/uvm/Accellera-1800.2-2017-1.0.tar.gz) and [1800.2-2020-3.1](https://github.com/accellera-official/uvm-core.git)
+
+The dependancies are available with this repository as git submodules (not normally populated).  To run the 
+unit tests with these versions   
+- Populate the git submodules (verilator source, UVM 1800.2-2020-3.1, and cluelib)
+    - Clone the repository with `--recursive` *OR*
+    - Populate the submoduile in an existing clone  `git submodule update --init --recursive`
+- Build and install [verilator](https://verilator.org/guide/latest/install.html) 
+    - [Z3 Theorem Prover](https://verilator.org/guide/latest/install.html#install-z3) is required
+    - [ccache and mold](https://verilator.org/guide/latest/install.html#install-prerequisites) are recommended for build performance
+- Populate UVM 1800.2-2017-1.0 (not available on github):
+```
+pushd unit_test/deps/uvm && \
+wget https://www.accellera.org/images/downloads/standards/uvm/Accellera-1800.2-2017-1.0.tar.gz && \
+tar -zxvf Accellera-1800.2-2017-1.0.tar.gz && \
+rm -rf Accellera-1800.2-2017-1.0.tar.gz && \
+popd
+```
+
+Once this is done, the unit test suite can be run as:
+```
+cd unit_test/run
+make regr
+```
+
+Notes: 
+- External UVM and CLuelib dependancies and can easily be used.  See: `make help` 
+- There is no support for different SV simulators 
