@@ -1,7 +1,17 @@
 # Makefile for running unit-tests on UVM 2017 and 2020 releases with verilator.
-# - compiles to build/cmp_u<uvm_release>
-# - simulates to build/sim_u<uvm_release>_s<seed>.
-# make help for usage.
+# - cmp: compiles to build/cmp_u<uvm_release>
+#	 - CMP_OPTS for user compile options
+#    - always logs to file, logs to terminal (default) if QUIET != yes 
+#    - log file: cmp.log
+#    - executable: sim_verilator 
+#	 - verilator builds in build subdir
+# - sim: simulates to build/sim_u<uvm_release>_s<seed>.
+#    - SIM_OPTS for user sim options
+#    - always logs to file, logs to terminal (default) if QUIET != yes	
+#	 - sim log: sim.log
+# - regr: clean the cmp and sim with UVM_VER=2017 and UVM_VER=2020
+# - clean, clean_cmp, clean_sim: everything, cmp, and sim respectively
+# - help:usage.
 
 .PHONY: all cmp sim clean clean_cmp clean_sim help regr
 
@@ -9,9 +19,12 @@
 UVM_VER   ?= 2020
 SEED      ?= 1
 QUIET     ?= no
+# CMP_OPTS for cmp
+# SIM_OPTS for sim
 
 EVM_HOME  := $(abspath ${CURDIR}/../..)
 
+# Dependencies
 ifeq (${UVM_VER},2020)
 	UVM_HOME ?= ${EVM_HOME}/unit_test/deps/uvm/1800.2-2020-3.1
 	UVM_DPI_CC ?= ${EVM_HOME}/unit_test/deps/verilator/test_regress/t/uvm/v2020_3_1/dpi/uvm_dpi.cc
@@ -21,17 +34,13 @@ else ifeq (${UVM_VER},2017)
 else ifeq ($(and ${UVM_HOME},${UVM_DPI_CC}),)
   $(error "Unsupported UVM_VER (${UVM_VER}) requires both UVM_HOME (${UVM_HOME}) and UVM_DPI_CC (${UVM_DPI_CC}) to be set.")
 endif
-
 CL_HOME   ?= ${EVM_HOME}/unit_test/deps/cluelib
 
-
-CMP_DIR ?= ${CURDIR}/build/cmp_u${UVM_VER}
-SIM_DIR ?= ${CURDIR}/build/sim_u${UVM_VER}_s${SEED}
-CMP_LOG ?= ${CMP_DIR}/cmp.log
-SIM_LOG ?= ${SIM_DIR}/sim.log
-
+# Targets
 all: cmp sim
 
+CMP_DIR ?= ${CURDIR}/build/cmp_u${UVM_VER}
+CMP_LOG ?= ${CMP_DIR}/cmp.log
 cmp:
 	@echo "Compiling ${CMP_DIR}"
 	@rm -rf ${CMP_DIR} && mkdir -p ${CMP_DIR}/build
@@ -52,23 +61,24 @@ cmp:
 	ret=$$?; \
 	exit $$ret
 
+
+SIM_DIR ?= ${CURDIR}/build/sim_u${UVM_VER}_s${SEED}
+SIM_LOG ?= ${SIM_DIR}/sim.log
 sim: 
 	@echo "Simulating ${SIM_DIR}"
 	@rm -rf ${SIM_DIR} && mkdir -p ${SIM_DIR}
-	@cmd="${CMP_DIR}/sim_verilator +UVM_TESTNAME=ut_testcase +verilator+seed+${SEED} +EVM_RAL_LOG_NAME=${SIM_DIR}/uvm_reg.log ${SIM_OPTS}"; \
+	@cmd="${CMP_DIR}/sim_verilator +UVM_TESTNAME=ut_testcase +verilator+seed+${SEED} +uvm_set_config_string=uvm_test_top.m_env.m_reg_logger,m_file_name,${SIM_DIR}/uvm_reg.log  ${SIM_OPTS}"; \
 	echo "$$cmd" > ${SIM_LOG} 2>&1; \
 	if [ "${QUIET}" = "yes" ]; then \
 	  eval "$$cmd > ${SIM_LOG} 2>&1"; \
 	else \
-	  echo "$$cmd"; \
-	  eval "$$cmd 2>&1 | tee ${SIM_LOG}"; \
+	  eval "$$cmd 2>&1 | tee -a ${SIM_LOG}"; \
 	fi; \
 	ret=$$?; \
 	exit $$ret
 
 
 REGR_UVM_LIST ?= 2017 2020
-
 regr: clean
 	@echo "Running full regression for UVM versions: $(REGR_UVM_LIST)"
 	@for version in $(REGR_UVM_LIST); do \

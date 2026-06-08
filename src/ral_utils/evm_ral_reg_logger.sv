@@ -21,15 +21,28 @@ typedef class evm_ral_reg_logger_bd;
  */
 class evm_ral_reg_logger extends uvm_component;
 
-    evm_ral_reg_logger_cb  m_reg_logger_cb;             ///< Logger callback for all registers
-    evm_ral_reg_logger_bd  m_reg_logger_bd;             ///< Logger backdoor wrapper for all registers
-    string                 m_file_name = "uvm_reg.log"; ///< Log file name
- 
-    protected int            m_file_handle;
-    protected realtime       m_start_time[uvm_reg];
-    protected uvm_reg_data_t m_start_val[uvm_reg];
+    string                   m_file_name = "uvm_reg.log";   ///< Register log file name
 
-    `uvm_component_utils(evm_ral_reg_logger)
+    typedef enum {
+                   OMIT_PREFIX,  ///< rg.get_full_name() minus common prefix
+                   FULL_NAME,    ///< rg.get_full_name() 
+                   SHORT_NAME    ///< rg.get_name() is logged
+                 } reg_name_cfg_t; ///< Register name logging options
+
+    reg_name_cfg_t           m_reg_name_cfg;              ///< Register name logging configuration
+
+    evm_ral_reg_logger_cb    m_reg_logger_cb;             ///< Logger callback for all registers
+    evm_ral_reg_logger_bd    m_reg_logger_bd;             ///< Logger backdoor wrapper for all registers
+ 
+    protected int            m_file_handle;               ///< Register log file handle
+    protected realtime       m_start_time[uvm_reg];       ///< Start time by register
+    protected uvm_reg_data_t m_start_val[uvm_reg];        ///< uvm_reg_item::value[0] on start (i.e. write value)
+    protected int unsigned   m_common_prefix_len;         ///< Length of common prefix to omit from register names
+
+    `uvm_component_utils_begin(evm_ral_reg_logger)  
+        `uvm_field_string(m_file_name, UVM_STRING|UVM_ALL_ON)
+        `uvm_field_enum(reg_name_cfg_t, m_reg_name_cfg, UVM_ALL_ON|UVM_STRING)
+    `uvm_component_utils_end
 
     extern function new(string name = "evm_ral_reg_logger", uvm_component parent = null);
    
@@ -42,6 +55,8 @@ class evm_ral_reg_logger extends uvm_component;
     extern virtual function void start_access( uvm_reg_item rw ); ///< Capture the start time and write value
 
     extern virtual function void end_access( uvm_reg_item rw ); ///< Log a transaction
+
+    extern virtual function string reg_log_name_str( uvm_reg rg ); ///< Get the register name for logging
 
     extern virtual function string field_str( uvm_reg rg ); ///< Turn register fields into a log string
 
@@ -108,7 +123,7 @@ class evm_ral_reg_logger_bd extends uvm_reg_backdoor;
 
     bit in_backdoor_write;
 
-    evm_ral_reg_logger             m_logger;
+    evm_ral_reg_logger         m_logger;
     protected uvm_reg_backdoor m_reg_bd;
     protected uvm_reg          m_reg;
 
@@ -158,9 +173,10 @@ function void evm_ral_reg_logger::connect( uvm_reg_block reg_block );
     uvm_callbacks#(uvm_reg)::add(null, m_reg_logger_cb);
     uvm_callbacks#(uvm_reg_backdoor)::add(null, m_reg_logger_cb);
 
-    if( uvm_cmdline_processor::get_inst().get_arg_values("+EVM_RAL_LOG_NAME=", names) ) begin
-        m_file_name = names[0];
-        `uvm_info( get_type_name(), $sformatf("+EVM_RAL_LOG_NAME=%s", m_file_name ), UVM_NONE);
+    if( m_reg_name_cfg == OMIT_PREFIX ) begin
+        string reg_names[$];    
+        foreach( regs[i] ) reg_names.push_back( regs[i].get_full_name() );
+        m_common_prefix_len = evm_text::longest_common_prefix(reg_names).len();
     end
 
     m_file_handle = $fopen( m_file_name, "w");
@@ -211,11 +227,19 @@ function void evm_ral_reg_logger::end_access( uvm_reg_item rw );
             end
         end
 
-        $fwrite(m_file_handle, "%0t, %0t, %s, %s, %s, %s, %h, %s\n", start_time, $realtime, rw.kind==UVM_READ?"RD":"WR", rg.get_full_name(), map_name, rw.path==UVM_FRONTDOOR?"FRONT":"BACK", val, field_str(rg) );
+        $fwrite(m_file_handle, "%0t, %0t, %s, %s, %s, %s, %h, %s\n", start_time, $realtime, rw.kind==UVM_READ?"R":"W", reg_log_name_str(rg), map_name, rw.path==UVM_FRONTDOOR?"FD":"BD", val, field_str(rg) );
     end else begin
         `uvm_warning( get_type_name(), $sformatf("end_access(): No uvm_reg rw.element:%s", rw.convert2string() ) );
     end
 endfunction: end_access
+
+function string evm_ral_reg_logger::reg_log_name_str( uvm_reg rg );
+    case ( m_reg_name_cfg )
+        FULL_NAME   : return rg.get_full_name();
+        OMIT_PREFIX : return rg.get_full_name().substr(m_common_prefix_len, rg.get_full_name().len()-1);
+        SHORT_NAME  : return rg.get_name();
+    endcase
+endfunction: reg_log_name_str
 
 function string evm_ral_reg_logger::field_str( uvm_reg rg );
     uvm_reg_field fields[$];

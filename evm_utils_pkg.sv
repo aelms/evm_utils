@@ -51,6 +51,7 @@ package evm_utils_pkg;
     coverpoint VALUE[31] iff(MASK[31]) { option.weight = MASK[31]; bins clr_b = {0}; bins set_b = {1}; } 
         
   // Reporting
+  `include "reporting/evm_text.sv"
   `include "reporting/evm_single_line_printer.sv"
   `include "reporting/evm_report_delegation.svh"
   `include "reporting/evm_report_server.sv"

@@ -14,7 +14,15 @@
 //-----------------------------------------------------------------------------
 class ut_testcase extends uvm_test;
 
-    `uvm_component_utils( ut_testcase )
+    bit m_comparer_test_en = 1'b1; 
+    bit m_ral_reset_test_en = 1'b1;
+    bit m_ral_access_test_en = 1'b1;
+
+    `uvm_component_utils_begin( ut_testcase )
+        `uvm_field_int(m_comparer_test_en, UVM_ALL_ON|UVM_BIN)
+        `uvm_field_int(m_ral_reset_test_en, UVM_ALL_ON|UVM_BIN)
+        `uvm_field_int(m_ral_access_test_en, UVM_ALL_ON|UVM_BIN)
+    `uvm_component_utils_end
 
     ut_env               m_env;
     uvm_reg_hw_reset_seq m_reg_reset_seq;
@@ -28,29 +36,28 @@ class ut_testcase extends uvm_test;
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
         m_env = ut_env::type_id::create("m_env", this);
-        if( $test$plusargs("skip_cmp_test") ) begin
-            `uvm_info( get_type_name(), "Comparer test skipped with +skip_cmp_test", UVM_NONE );
-        end else begin
+        if( m_comparer_test_en ) begin
             uvm_config_db#(uvm_object_wrapper)::set(this, "*.m_ut_agt.m_sqr.main_phase", "default_sequence", ut_random_sequence::get_type());
         end
     endfunction: build_phase
+
+    virtual function void start_of_simulation_phase(uvm_phase phase);
+        super.start_of_simulation_phase(phase);
+        uvm_root::get().print_topology();
+    endfunction: start_of_simulation_phase
 
     virtual task main_phase(uvm_phase phase);
         phase.raise_objection(this);
         if( $test$plusargs("uvm_error") ) begin
             `uvm_error(get_type_name(), "Error from +uvm_error");
         end
-        if( $test$plusargs("skip_ral_reset_test") ) begin
-            `uvm_info( get_type_name(), "RAL reset test skipped with +skip_ral_reset_test", UVM_NONE );
-        end else begin
+        if( m_ral_reset_test_en ) begin
             m_reg_reset_seq = uvm_reg_hw_reset_seq::type_id::create("m_reg_reset_seq");
             m_reg_reset_seq.model = m_env.m_reg_blk;
             m_reg_reset_seq.start(m_env.m_ral_agt.m_sqr);
         end
 
-        if( $test$plusargs("skip_ral_access_test") ) begin
-            `uvm_info(get_type_name(), "RAL access test skipped with +skip_ral_access_test", UVM_NONE)
-        end else begin
+        if( m_ral_access_test_en ) begin
             m_reg_access_seq = uvm_reg_access_seq::type_id::create("m_reg_access_seq");
             m_reg_access_seq.model = m_env.m_reg_blk;
             m_reg_access_seq.start(m_env.m_ral_agt.m_sqr);
